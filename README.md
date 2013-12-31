@@ -1,4 +1,4 @@
 hugh
 ====
 
-LED strip controller over WebSockets
+hugh is an LED strip controller that accepts commands over WebSockets
