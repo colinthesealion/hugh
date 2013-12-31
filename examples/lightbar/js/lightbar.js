@@ -10,6 +10,7 @@ var LightBar = (function() {
 	var arduinoavailable = false;
 	var server = 'hugh.local';
 	var port = 9998;
+	var brightness = 100;
 
 	// Methods
 	return {
@@ -123,7 +124,18 @@ var LightBar = (function() {
 						'onset': (new Date()).getTime(),
 						'delta': recordinginterval,
 						'pixels': $pixels.map(function() {
-							return jQuery(this).css('background-color');
+							var pixel = jQuery(this).css('background-color');
+							if (brightness !== 100) {
+								var match = pixel.match(/rgb\((\d+), (\d+), (\d+)\)/);
+								if (match) {
+									pixel = "rgb("
+										+ Math.round(parseInt(match[1]) * brightness / 100) + ", "
+										+ Math.round(parseInt(match[2]) * brightness / 100) + ", "
+										+ Math.round(parseInt(match[3]) * brightness / 100)
+										+ ")";
+								}
+							}
+							return pixel;
 						}).get()
 					};
 				}
@@ -519,6 +531,12 @@ var LightBar = (function() {
 			}
 
 			return;
+		},
+
+		// Adjust brightness
+		AdjustBrightness: function(value) {
+			jQuery('#brightnessdisplay').val(value);
+			brightness = value;
 		}
 	};
 }());

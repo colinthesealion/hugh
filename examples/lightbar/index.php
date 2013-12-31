@@ -172,6 +172,9 @@
 	    <option value="custom">Custom</option>
 	  </select>
 	  <input type="file" name="palette" id="palette" style="display: none;" onchange="LightBar.DisplayCustomPalette(this.files[0])" />
+	  <label>Brightness</label>
+	  <input type="range" name="brightness" min="1" max="100" value="100" onchange="LightBar.AdjustBrightness(this.value)"></input>
+	  <input id="brightnessdisplay" value="100" size="3" disabled></input>
       </div>
     </div>
 
