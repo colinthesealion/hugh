@@ -21,17 +21,28 @@ uint16_t ModeIndex = 0;
 YunServer server(PORT);
 
 void setup () {
+	// Start up serial communication
 	Serial.begin(115200);
   
+	// Start up bridge communication
 	Bridge.begin();
 
-	FileSystem.begin();
+	// Start up filesystem
+	if (DEBUG) {
+		FileSystem.begin();
+	}
 
+	// Start up YunServver
 	server.listenOnLocalhost();
 	server.begin();
 
+	// Start up light strip
 	strip.begin();
 	strip.show();        
+
+	// Start the python proxy server for relaying from internet via atheros to atmel
+	Process p;
+	p.runShellCommandAsynchronously("/mnt/sda1/bin/start_proxy.sh");
 }
   
 void loop () {
