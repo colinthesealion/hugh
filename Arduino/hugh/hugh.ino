@@ -42,7 +42,7 @@ void setup () {
 
 	// Start the python proxy server for relaying from internet via atheros to atmel
 	Process p;
-	p.runShellCommandAsynchronously("/mnt/sda1/bin/start_proxy.sh");
+	p.runShellCommandAsynchronously("/mnt/sda1/bin/start_proxy.sh | /mnt/sda1/colorize.py -f red >> /mnt/sda1/hugh.log");
 }
   
 void loop () {
@@ -190,7 +190,6 @@ uint32_t  Wheel(uint16_t p) {
 void Log(String message) {
 	if (DEBUG) {
 		Process p;
-		p.runShellCommand("/bin/echo " + message + " >> /mnt/sda1/hugh.log");
-		while (p.running());
+		p.runShellCommandAsynchronously("/bin/echo " + message + " | /mnt/sda1/colorize.py -f blue >> /mnt/sda1/hugh.log");
 	}
 }
