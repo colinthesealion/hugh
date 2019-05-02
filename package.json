@@ -1,0 +1,43 @@
+{
+  "name": "hugh",
+  "version": "1.0.0",
+  "description": "A websocket-based LED controller for the arduino yun",
+  "main": "src/js/index.js",
+  "directories": {
+    "example": "examples",
+    "lib": "lib"
+  },
+  "scripts": {
+    "start": "node ./node_modules/live-server/live-server.js --host=localhost examples/lights",
+    "build": "webpack",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/colinthesealion/hugh.git"
+  },
+  "keywords": [
+    "arduino",
+    "yun",
+    "LED",
+    "websocket"
+  ],
+  "author": "Colin Barringer",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/colinthesealion/hugh/issues"
+  },
+  "homepage": "https://github.com/colinthesealion/hugh#readme",
+  "dependencies": {
+    "bootstrap": "^4.3.1",
+    "jquery": "^3.4.0",
+    "popper.js": "^1.15.0"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.1",
+    "ts-loader": "^5.4.3",
+    "typescript": "^3.4.5",
+    "webpack": "^4.30.0",
+    "webpack-cli": "^3.3.1"
+  }
+}

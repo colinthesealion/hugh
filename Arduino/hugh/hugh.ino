@@ -1,195 +1,118 @@
+#include <Adafruit_NeoPixel.h>
 #include <Bridge.h>
-#include <FileIO.h>
-#include <YunClient.h>
-#include <YunServer.h>
-#include "LPD8806.h"
-#include "SPI.h"
+#include <Console.h>
 
-#define NPIXELS 32
-#define DATA 2
-#define CLOCK 3
-#define PORT 12345
-#define FRAMERATE 30
-#define DEBUG false
+#define N_PIXELS 150
+#define LED_PIN 13
+#define DEBUG true
+#define debug(X) if (DEBUG) Console.print(X)
+#define debugln(X) if (DEBUG) Console.println(X)
+#define FRAME_RATE 200
 
-LPD8806 strip = LPD8806(NPIXELS, DATA, CLOCK);
-static char Colors[4] = "RGB";
-String CurrentMode = "RAINBOW";
-String PreviousMode = CurrentMode;
-uint16_t ModeIndex = 0;
+Adafruit_NeoPixel strip(N_PIXELS, LED_PIN, NEO_GRB + NEO_KHZ800);
 
-YunServer server(PORT);
+void setup() {
+  // Initialize the LED strip
+  strip.begin();
+  uint32_t red = strip.Color(0, 255, 0);
+  for (uint8_t i = 0; i < N_PIXELS; i++) {
+    strip.setPixelColor(i, red);
+  }
+  strip.show();
 
-void setup () {
-	// Start up serial communication
-	Serial.begin(115200);
-  
-	// Start up bridge communication
-	Bridge.begin();
+  // Wait for linux boot to complete
+  Serial1.begin(115200);
+  do {
+    while (Serial1.available() > 0) {
+      Serial1.read();
+    }
+    delay(1000);
+  } while (Serial1.available() > 0);
 
-	// Start up filesystem
-	if (DEBUG) {
-		FileSystem.begin();
-	}
-
-	// Start up YunServver
-	server.listenOnLocalhost();
-	server.begin();
-
-	// Start up light strip
-	strip.begin();
-	strip.show();        
-
-	// Start the python proxy server for relaying from internet via atheros to atmel
-	Process p;
-	p.runShellCommandAsynchronously("/mnt/sda1/bin/start_proxy.sh | /mnt/sda1/colorize.py -f red >> /mnt/sda1/hugh.log");
-}
-  
-void loop () {
-	// Check for new clients
-	YunClient client = server.accept();
-
-	// While connected to the client...
-	if (client && client.connected()) {
-		Log("Connected to a client");
-		//client.setTimeout(5);
-		while (client && client.connected()) {
-			// If there is incoming data from the client...
-			if (client.available()) {
-				// Switch to listen mode
-				if (CurrentMode != "LISTEN") {
-					PreviousMode = CurrentMode;
-					CurrentMode = "LISTEN";
-				}
-
-				// Check for command in message
-				String message = client.readStringUntil('[');
-				if (message == "PIXEL") {
-					Log("got pixel");
-          
-					// Get the pixel
-					uint8_t i;
-					if (client.read() == 'i') {
-						i = client.parseInt();
-					}
-					uint8_t rgb[3];
-					boolean fullpixel = true;
-					for (uint8_t j = 0; j < 3 && client.available(); j++) {
-						if (client.read() == Colors[j]) {
-							rgb[j] = client.parseInt();
-						}
-						else {
-							fullpixel = false;
-							break;
-						}
-					}
-          
-					if (fullpixel) {
-						// Set pixel i to color (r, g, b)
-						Log(String(i) + " " + String(rgb[0]) + " " + String(rgb[1]) + " " + String(rgb[2]));
-						strip.setPixelColor(i++, strip.Color(rgb[0], rgb[1], rgb[2]));
-					}
-          
-					if (i == NPIXELS) {
-						strip.show();
-					}
-				}
-				else if (message == "MODE") {
-					PreviousMode = CurrentMode;
-					ModeIndex = 0;
-					CurrentMode = client.readStringUntil(']');
-				}
-				else {
-					Log(message);
-				}
-      
-				// Clear out any remaining characters from the message
-				message = client.readStringUntil('\n');
-			}
-			else {
-				ExecuteOneFrameOfCurrentMode();
-			}
-		}
-  
-		// Stop communicating with disconnected client
-		client.stop();
-	}
-	else {
-		// There is no connected client, we wait a second for a new client
-		// In the meantime, execute a few frames of the current mode
-    
-		// We don't have a client, and thus there is nothing to listen to
-		// So if the current mode is LISTEN, we switch to the previous mode
-		if (CurrentMode == "LISTEN") {
-			CurrentMode = PreviousMode;
-			ModeIndex = 0;
-		}
-    
-		// Execute 1 second worth of frames
-		for (int i = 0; i < FRAMERATE; i++) {
-			ExecuteOneFrameOfCurrentMode();
-		}
-	}
+  // Initialize console
+  Bridge.begin();
+  Console.begin();
+  while (!Console);
+  debugln("You're connected to the Console!!!!");
 }
 
-// As the name implies, execute one frame
-void ExecuteOneFrameOfCurrentMode() {
-	if (CurrentMode == "LISTEN") {
-		// No-op
-	}
-	else {
-		if (CurrentMode == "RAINBOW") {
-			Rainbow();
-		}
-		// TODO: Other options
-		else {
-			// TODO: Tell the user that they sent an invalid mode
-		}
-		strip.show();
-  
-		// Increment the index
-		ModeIndex++;
-	}
-  
-	// And wait
-	delay(1000 / FRAMERATE);
+String mode = "RAINBOW";
+void loop() {
+  if (Console.available()) {
+    processConsole();
+  }
+  else if (mode == "RAINBOW") {
+    rainbow();
+  }
+  delay(1000 / FRAME_RATE);
 }
 
-// Cycles through the 384 colors of the wheel
-void Rainbow() {
-	for (uint16_t i = 0; i < NPIXELS; i++) {
-		strip.setPixelColor(i, Wheel((i + ModeIndex) % 384));
-	}
+void processConsole() {
+  String command = Console.readStringUntil(' ');
+  debugln("Got command " + command);
+  if (command == "rainbow") {
+    startRainbow();
+    Console.readStringUntil('\n');
+    return;
+  }
+
+  int r = Console.parseInt();
+  int g = Console.parseInt();
+  int b = Console.parseInt();
+  if (command == "all") {
+    showAll(r, g, b);
+  }
+  else if (command == "cascade") {
+    cascade(r, g, b);
+  }
+  Console.readStringUntil('\n');
 }
 
-// Input a value 0 to 384, get a color value
-// Colors are a transition r - g - b - back to r
-uint32_t  Wheel(uint16_t p) {
-	byte r, g, b;
-	switch (p / 128) {
-	case 0:
-		r = 127 - p % 128;
-		g = p % 128;
-		b = 0;
-		break;
-	case 1:
-		r = 0;
-		g = 127 - p % 128;
-		b = p % 128;
-		break;
-	case 2:
-		r = p % 128;
-		g = 0;
-		b = 127 - p % 128;
-		break;
-	}
-  
-	return strip.Color(r, g, b);
+void startRainbow() {
+  mode = "RAINBOW";
+  debugln("Entering the rainbow");
+  rainbow();
 }
 
-void Log(String message) {
-	if (DEBUG) {
-		Process p;
-		p.runShellCommandAsynchronously("/bin/echo " + message + " | /mnt/sda1/colorize.py -f blue >> /mnt/sda1/hugh.log");
-	}
+void showAll(int r, int g, int b) {
+  mode = "INTERACTIVE";
+  debug("Set all pixels to rgb(");
+  debug(r); debug(","); debug(g); debug(","); debug(b);
+  debugln(")");
+  uint32_t color = strip.Color(g, r, b);
+  for (int i = 0; i < N_PIXELS; i++) {
+    strip.setPixelColor(i, color);
+  }
+  strip.show();
+}
+
+void cascade(int r, int g, int b) {
+  mode = "INTERACTIVE";
+  debug("Cascade rgb(");
+  debug(r); debug(","); debug(g); debug(","); debug(b);
+  debugln(")");
+  uint32_t color = strip.Color(g, r, b);
+  for (int i = N_PIXELS - 1; i > 0; i--) {
+    strip.setPixelColor(i, strip.getPixelColor(i - 1));
+  }
+  strip.setPixelColor(0, color);
+  strip.show();
+}
+
+void rainbow() {
+  static long firstPixelHue = 0;
+  for (int i = 0; i < N_PIXELS; i++) { // For each pixel in strip...
+    // Offset pixel hue by an amount to make one full revolution of the
+    // color wheel (range of 65536) along the length of the strip
+    // (strip.numPixels() steps):
+    int pixelHue = firstPixelHue + (i * 65536L / N_PIXELS);
+    // strip.ColorHSV() can take 1 or 3 arguments: a hue (0 to 65535) or
+    // optionally add saturation and value (brightness) (each 0 to 255).
+    // Here we're using just the single-argument hue variant. The result
+    // is passed through strip.gamma32() to provide 'truer' colors
+    // before assigning to each pixel:
+    strip.setPixelColor(i, strip.gamma32(strip.ColorHSV(pixelHue)));
+  }
+  strip.show();
+  firstPixelHue = (firstPixelHue + 256) % (5 * 65536);
 }
